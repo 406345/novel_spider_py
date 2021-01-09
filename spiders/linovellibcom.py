@@ -28,11 +28,10 @@ class LinovellibCom(basespider.BaseSpider):
         update_date = book_meta.find('p').find_all('span')[1].text
 
         print('Novel Name: %s Author: %s' % (title, author))
+        
         all_chapters = soup.find_all('li', class_='col-4')
 
-        print('find %d chapters, starting to process' % len(all_chapters))
-        # loop.run_until_complete(self.process_chapter(
-        #     self.base_url + all_chapters[0].find('a')['href']))
+        print('find %d chapters, starting to process' % len(all_chapters)) 
 
         tasks = []
         for i, chapter in enumerate(all_chapters):
@@ -85,7 +84,7 @@ class LinovellibCom(basespider.BaseSpider):
                     contents.append(('txt', p.text))
 
         if persist:
-            basespider.BaseSpider.persist_chapter(
+            await basespider.BaseSpider.persist_chapter(
                 self, title, contents, html_file_name)
             print('finish chapter: %s[%s]' % (chapter_name, chapter_url))
         else:
@@ -97,4 +96,4 @@ class LinovellibCom(basespider.BaseSpider):
 if __name__ == '__main__':
     a = LinovellibCom()
     # a.load('https://www.linovelib.com/novel/73/catalog', './小书痴.epub')
-    a.load('https://www.linovelib.com/novel/2796/catalog', './平均值.epub')
+    a.load('https://www.linovelib.com/novel/2014/catalog', './overlord2.epub')
