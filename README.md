@@ -14,5 +14,4 @@ NovelSpider is only used for study purposes.DO NOT USE IN OTHER PURPOSES.
 
 NovelSpider仅用于学习，请勿用于其他用途。
 
-# Rights
-If there are any tort, notice me and I will remove the repo.
+If there are any tort, please notice me and I will remove the repo.
