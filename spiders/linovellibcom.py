@@ -1,11 +1,13 @@
-import httputils
-import basespider
+import spiders.httputils
+import spiders.basespider
 import asyncio
 
 from bs4 import BeautifulSoup
 
 # url is a category url, like https://www.linovelib.com/novel/2796/catalog
-class LinovellibCom(basespider.BaseSpider):
+
+
+class LinovellibCom(spiders.basespider.BaseSpider):
     def __init__(self):
         super().__init__()
 
@@ -17,21 +19,30 @@ class LinovellibCom(basespider.BaseSpider):
         loop = asyncio.get_event_loop()
 
         print('loading page %s' % (url))
-        html = loop.run_until_complete(httputils.get(url))
+        html = loop.run_until_complete(spiders.httputils.get(url))
 
-        soup = BeautifulSoup(html, 'html.parser')
+        index_page = BeautifulSoup(html, 'html.parser')
+        cover_url = index_page.find(
+            'div', class_='book-img').find('img').get('src')
+        loop.run_until_complete(super().generate_cover_image(cover_url))
 
-        book_meta = soup.find(class_='book-meta')
+        chapter_page_url = index_page.find(
+            'a', class_='btn read-btn').get('href')
+
+        chapter_page_html = loop.run_until_complete(
+            spiders.httputils.get(self.base_url+chapter_page_url))
+        chapter_page = BeautifulSoup(chapter_page_html, 'html.parser')
+        book_meta = chapter_page.find(class_='book-meta')
         id = url.split('/')[-2]
         title = book_meta.find('h1').text
         author = book_meta.find('p').find_all('span')[0].find('a').text
         update_date = book_meta.find('p').find_all('span')[1].text
 
         print('Novel Name: %s Author: %s' % (title, author))
-        
-        all_chapters = soup.find_all('li', class_='col-4')
 
-        print('find %d chapters, starting to process' % len(all_chapters)) 
+        all_chapters = chapter_page.find_all('li', class_='col-4')
+
+        print('find %d chapters, starting to process' % len(all_chapters))
 
         tasks = []
         for i, chapter in enumerate(all_chapters):
@@ -42,7 +53,8 @@ class LinovellibCom(basespider.BaseSpider):
 
         result, b = loop.run_until_complete(asyncio.wait(tasks))
 
-        chapters_metas = list(filter(lambda x: x != None, [x.result() for x in result]))
+        chapters_metas = list(filter(lambda x: x != None, [
+            x.result() for x in result]))
         chapters_metas = sorted(chapters_metas, key=lambda x: x[0])
         chapters_metas = [(x[1], x[2]) for x in chapters_metas]
 
@@ -55,14 +67,14 @@ class LinovellibCom(basespider.BaseSpider):
             return
 
         print('processing chapter: %s[%s]' % (chapter_name, chapter_url))
-        chapter_content = await httputils.get(chapter_url)
+        chapter_content = await spiders.httputils.get(chapter_url)
         page = BeautifulSoup(chapter_content, 'html.parser')
         id = chapter_url.split('/')[-1].split('.')[0]
         html_file_name = 'chapter_' + id + '.html'
         title = page.find('h1').text.strip(' ')
         a_tag = page.find('a')
         chapter_title = a_tag.text.strip(' ')
-        chapter_url = self.base_url + a_tag['href']
+        # chapter_url = self.base_url + a_tag['href']
 
         contents = []
 
@@ -84,7 +96,7 @@ class LinovellibCom(basespider.BaseSpider):
                     contents.append(('txt', p.text))
 
         if persist:
-            await basespider.BaseSpider.persist_chapter(
+            await spiders.basespider.BaseSpider.persist_chapter(
                 self, title, contents, html_file_name)
             print('finish chapter: %s[%s]' % (chapter_name, chapter_url))
         else:

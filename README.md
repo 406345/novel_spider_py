@@ -1,10 +1,12 @@
-# About
+# about
 NovelSpider is a simple spider which will download novels from websites and generate epub format file
 
 NovelSpider是一个小说爬虫，爬取小说后自动生成epub格式文件
 
 # usage
 python3 main.py [url] [output_file]
+
+python3 main.py "https://www.linovelib.com/novel/2796.html" "./说了要平均值.epub"
 
 # support list
 bili轻小说(https://www.linovelib.com/)

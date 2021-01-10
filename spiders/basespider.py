@@ -1,10 +1,12 @@
 import os
 
 from requests.api import head
-import httputils
+import spiders.httputils
 import datetime
 import zipfile
 import os.path
+from urllib.parse import urlparse
+
 
 class BaseSpider:
     def __init__(self):
@@ -15,21 +17,23 @@ class BaseSpider:
 
     def load(self, url, path):
         self.output_dir = path
-        url_segments = url.split('/')
-        self.host = url_segments[2]
-        self.base_url = url_segments[0]+'//'+url_segments[2]
+        url_segments = urlparse(url)
+        self.host = url_segments.hostname
+        self.base_url = url_segments.scheme + '://' + \
+            url_segments.hostname
 
-        os.makedirs(os.path.dirname(self.output_dir), exist_ok=True) 
+        os.makedirs(os.path.dirname(self.output_dir), exist_ok=True)
         self.zfile = zipfile.ZipFile(path, 'w')
 
-        self.zfile.writestr('mimetype', 'application/epub+zip', compress_type=zipfile.ZIP_STORED) 
+        self.zfile.writestr('mimetype', 'application/epub+zip',
+                            compress_type=zipfile.ZIP_STORED)
         self.zfile.writestr('META-INF/container.xml', '''
 <?xml version="1.0"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
    <rootfiles>
       <rootfile full-path="content.opf" media-type="application/oebps-package+xml"/>
    </rootfiles>
-</container>''', compress_type=zipfile.ZIP_STORED) 
+</container>''', compress_type=zipfile.ZIP_STORED)
 
     async def persist_chapter(self, title, contents, filename):
         template = '''
@@ -51,7 +55,7 @@ class BaseSpider:
             if line[0] == 'txt':
                 buffer += ('<P>%s</P>' % line[1])
             elif line[0] == 'img':
-                img_content = await httputils.image(line[1])
+                img_content = await spiders.httputils.image(line[1])
                 self.zfile.writestr(
                     'images/'+line[1].split('/')[-1], img_content, compress_type=zipfile.ZIP_STORED)
                 buffer += ('<P><IMG SRC="%s"/></P>' %
@@ -60,6 +64,11 @@ class BaseSpider:
         buffer += (tail)
 
         self.zfile.writestr('chapters/'+filename, buffer,
+                            compress_type=zipfile.ZIP_STORED)
+
+    async def generate_cover_image(self, url):
+        img_content = await spiders.httputils.image(url)
+        self.zfile.writestr('cover_image.jpg', img_content,
                             compress_type=zipfile.ZIP_STORED)
 
     def generate_opf(self, author, book_title, chapters):
@@ -73,7 +82,7 @@ class BaseSpider:
         <dc:identifier id="uuid_id" opf:scheme="uuid">c0edc2b6-488d-4d50-a57f-01757285a222</dc:identifier>
         <meta name="cover" content="cover"/>
     </metadata>
-''' % (author, book_title)) 
+''' % (author, book_title))
         buffer += '''
     <manifest>
         <item href="cover_image.jpg" id="cover" media-type="image/jpeg"/>
@@ -96,7 +105,7 @@ class BaseSpider:
         self.zfile.writestr('content.opf', buffer,
                             compress_type=zipfile.ZIP_STORED)
 
-    def generate_ncx(self, book_title, chapters): 
+    def generate_ncx(self, book_title, chapters):
         buffer = ''
         buffer += '''<?xml version='1.0' encoding='utf-8'?>
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1" xml:lang="zh-CN">
@@ -125,4 +134,5 @@ class BaseSpider:
             buffer += (chapter_template % (i, i, chap[0], chap[1]))
         buffer += ('</navMap>')
         buffer += ('</ncx>')
-        self.zfile.writestr('toc.ncx', buffer, compress_type=zipfile.ZIP_STORED)
+        self.zfile.writestr('toc.ncx', buffer,
+                            compress_type=zipfile.ZIP_STORED)
